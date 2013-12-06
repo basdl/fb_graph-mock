@@ -4,49 +4,35 @@ require 'webmock/rspec'
 module FbGraph
   module Mock
     def mock_graph(method, path, response_path, options = {})
-      stub_request(
-        method,
-        endpoint_for(path)
-      ).with(
-        request_for(method, options)
-      ).to_return(
+      stub_request(method, endpoint_for(path)).with(request_for(method, options)).to_return(
         response_for(response_path, options)
       )
+
       if block_given?
         response = yield
-        a_request(
-          method,
-          endpoint_for(path)
-        ).with(
-          request_for(method, options)
-        ).should have_been_made.once
+        expect(a_request(method, endpoint_for(path)).with(request_for(method, options))).to have_been_made.once
         response
       end
     end
 
     def mock_fql(query, response_file, options = {})
-      options.merge!(:params => {
-        :q => query
-      })
-      stub_request(:get, FbGraph::Query.new(query).endpoint).with(
-        request_for(:get, options)
-      ).to_return(
+      options.merge!(params: { q: query })
+      stub_request(:get, FbGraph::Query.new(query).endpoint).with(request_for(:get, options)).to_return(
         response_for(response_file, options)
       )
+
       if block_given?
         response = yield
-        a_request(:get, FbGraph::Query.new(query).endpoint).with(
-          request_for(:get, options)
-        ).should have_been_made.once
+        expect(a_request(:get, FbGraph::Query.new(query).endpoint).with(request_for(:get, options))).to have_been_made.once
         response
       end
     end
 
     def request_to(path, method = :get)
-      raise_error(WebMock::NetConnectNotAllowedError) { |e|
-        e.message.should include("Unregistered request: #{method.to_s.upcase}")
-        e.message.should include(endpoint_for path)
-      }
+      raise_error(WebMock::NetConnectNotAllowedError) do |e|
+        expect(e.message).to include("Unregistered request: #{method.to_s.upcase}")
+        expect(e.message).to include(endpoint_for path)
+      end
     end
 
     private
@@ -75,9 +61,7 @@ module FbGraph
     def response_for(response_path, options = {})
       response = {}
       response[:body] = response_file_for response_path
-      if options[:status]
-        response[:status] = options[:status]
-      end
+      response[:status] = options[:status] if options[:status]
       response
     end
 
@@ -85,13 +69,10 @@ module FbGraph
       _response_file_path_ = if File.exist? response_path
         response_path
       else
-        File.join(
-          File.dirname(__FILE__), '../../mock_json', "#{response_path}.json"
-        )
+        File.join(File.dirname(__FILE__), '../../mock_json', "#{response_path}.json")
       end
-      unless File.exist? _response_file_path_
-        response_file_required! _response_file_path_
-      end
+
+      response_file_required! _response_file_path_ unless File.exist? _response_file_path_
       File.new _response_file_path_
     end
 
@@ -106,9 +87,7 @@ module FbGraph
     module_function
 
     def registered_mocks
-      Dir.glob(
-        File.join(File.dirname(__FILE__), '../../mock_json/**/*.json')
-      ).collect do |file_path|
+      Dir.glob(File.join(File.dirname(__FILE__), '../../mock_json/**/*.json')).collect do |file_path|
         file_path.split('mock_json').last.sub('.json', '')
       end
     end
